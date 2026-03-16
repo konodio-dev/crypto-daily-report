@@ -221,6 +221,25 @@ function detectSentiment(title) {
 }
 
 async function fetchNews() {
+  // cryptocurrency.cv supports native zh-TW translation!
+  try {
+    const r = await fetch("https://cryptocurrency.cv/api/news?limit=12&lang=zh-TW");
+    if (r.ok) {
+      const d = await r.json();
+      const articles = d.articles || d.data || d;
+      if (Array.isArray(articles) && articles.length > 0) {
+        return articles.slice(0, 12).map(n => ({
+          title: n.title || "",
+          source: n.source || "",
+          url: n.link || n.url || "",
+          time: n.pubDate ? new Date(n.pubDate) : new Date(),
+          tags: Array.isArray(n.tickers) ? n.tickers.slice(0, 3) : (n.tickers || n.categories || "").split ? (n.tickers || n.categories || "").split(",").filter(Boolean).slice(0, 3) : [],
+          sentiment: n.sentiment ? { label: n.sentiment.label === "positive" ? "利多" : n.sentiment.label === "negative" ? "利空" : "中性", color: n.sentiment.label === "positive" ? "#00e89d" : n.sentiment.label === "negative" ? "#ff5270" : "#ffd645", bg: n.sentiment.label === "positive" ? "rgba(0,232,157,0.12)" : n.sentiment.label === "negative" ? "rgba(255,82,112,0.12)" : "rgba(255,214,69,0.12)" } : detectSentiment(n.title || ""),
+        }));
+      }
+    }
+  } catch {}
+  // Fallback: try English version + rewrite
   try {
     const r = await fetch("https://cryptocurrency.cv/api/news?limit=12");
     if (r.ok) {
@@ -238,6 +257,7 @@ async function fetchNews() {
       }
     }
   } catch {}
+  // Final fallback: CoinGecko trending (already Chinese)
   try {
     const r = await fetch(`${COINGECKO}/search/trending`);
     if (r.ok) {
