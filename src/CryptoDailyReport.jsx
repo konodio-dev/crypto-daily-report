@@ -47,6 +47,7 @@ const SMART_WALLETS = [
 
 const SECTIONS = [
   { id:"market",label:"市場總覽",icon:"◉" },
+  { id:"advice",label:"投資建議",icon:"⚡" },
   { id:"trending",label:"熱度排行",icon:"△" },
   { id:"news",label:"每日新聞",icon:"▤" },
   { id:"unlocks",label:"代幣釋放",icon:"◎" },
@@ -94,6 +95,76 @@ async function fetchKlines(symbol) {
 async function fetchTrending() {
   try{const r=await fetch(`${COINGECKO}/search/trending`);if(!r.ok)return[];const d=await r.json();return(d.coins||[]).slice(0,10).map((c,i)=>({rank:i+1,symbol:c.item.symbol?.toUpperCase()||"?",name:c.item.name||"",change:c.item.data?.price_change_percentage_24h?.usd??0,mcRank:c.item.market_cap_rank||"—",thumb:c.item.thumb||"",score:c.item.score??i}));}catch{return[];}
 }
+// ─── English→Chinese crypto term dictionary ───
+const DICT = {
+  // Verbs & actions
+  "hits":"突破","reaches":"觸及","surges":"飆升","surged":"飆升","soars":"暴漲","soared":"暴漲",
+  "plunges":"暴跌","plunged":"暴跌","drops":"下跌","dropped":"下跌","falls":"下跌","fell":"下跌",
+  "rises":"上漲","rose":"上漲","gains":"上漲","rallies":"反彈","rallied":"反彈","rebounds":"反彈",
+  "crashes":"崩盤","crashed":"崩盤","dumps":"暴跌","pumps":"暴漲","moons":"飆升",
+  "launches":"推出","launched":"推出","announces":"宣布","announced":"宣布",
+  "approves":"批准","approved":"批准","rejects":"否決","rejected":"否決",
+  "partners":"合作","partnered":"合作","acquires":"收購","acquired":"收購",
+  "lists":"上架","listed":"上架","delists":"下架","delisted":"下架",
+  "bans":"禁止","banned":"禁止","targets":"目標","updates":"更新","updated":"更新",
+  "integrates":"整合","integrated":"整合","unveils":"公布","unveiled":"公布",
+  "files":"申請","filed":"已申請","considers":"考慮","proposes":"提議","proposed":"提議",
+  "raises":"募資","raised":"募資","secures":"獲得","secured":"獲得",
+  "warns":"警告","warned":"警告","investigates":"調查",
+  // Nouns
+  "Bitcoin":"比特幣","Ethereum":"以太坊","Solana":"Solana","Cardano":"Cardano",
+  "Dogecoin":"狗狗幣","Shiba":"柴犬幣","Ripple":"瑞波",
+  "price":"價格","market":"市場","token":"代幣","tokens":"代幣","coin":"代幣","coins":"代幣",
+  "exchange":"交易所","exchanges":"交易所","wallet":"錢包","wallets":"錢包",
+  "blockchain":"區塊鏈","network":"網路","protocol":"協議","platform":"平台",
+  "trading":"交易","trader":"交易者","traders":"交易者","investor":"投資者","investors":"投資者",
+  "whale":"鯨魚","whales":"鯨魚","bull":"多頭","bear":"空頭","bullish":"看漲","bearish":"看跌",
+  "ETF":"ETF","SEC":"SEC","regulation":"監管","regulatory":"監管","compliance":"合規",
+  "DeFi":"DeFi","NFT":"NFT","stablecoin":"穩定幣","stablecoins":"穩定幣",
+  "airdrop":"空投","staking":"質押","mining":"挖礦","halving":"減半",
+  "all-time high":"歷史新高","ATH":"歷史新高","all-time low":"歷史新低",
+  "support":"支撐","resistance":"壓力","breakout":"突破","breakdown":"跌破",
+  "partnership":"合作","collaboration":"合作","acquisition":"收購","merger":"合併",
+  "launch":"上線","upgrade":"升級","fork":"分叉","mainnet":"主網","testnet":"測試網",
+  "funding":"融資","round":"輪","Series":"輪","venture":"創投",
+  "hack":"駭客攻擊","hacked":"被駭","exploit":"漏洞攻擊","vulnerability":"漏洞",
+  "ban":"禁令","crackdown":"打壓","lawsuit":"訴訟",
+  "layer":"層","L1":"L1","L2":"L2","bridge":"跨鏈橋","cross-chain":"跨鏈",
+  "yield":"收益率","liquidity":"流動性","volume":"成交量","market cap":"市值",
+  "billion":"十億","million":"百萬","trillion":"兆",
+  // People & orgs
+  "Elon Musk":"馬斯克","Trump":"川普","Vitalik":"V神","CZ":"CZ趙長鵬",
+  "BlackRock":"貝萊德","Coinbase":"Coinbase","Binance":"幣安","Grayscale":"灰度",
+  "Fed":"聯準會","Federal Reserve":"聯準會","Congress":"國會","Senate":"參議院",
+  "China":"中國","Japan":"日本","Korea":"韓國","India":"印度","EU":"歐盟","US":"美國","U.S.":"美國",
+};
+
+function translateTitle(title) {
+  if (!title) return "";
+  let t = title;
+  // Sort keys by length (longer first) to avoid partial matches
+  const keys = Object.keys(DICT).sort((a, b) => b.length - a.length);
+  for (const k of keys) {
+    const regex = new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, "gi");
+    t = t.replace(regex, DICT[k]);
+  }
+  // Clean up common patterns
+  t = t.replace(/\s*:\s*/g, "：").replace(/\s*-\s*/g, " — ");
+  return t;
+}
+
+// Detect sentiment from title keywords
+function detectSentiment(title) {
+  const t = title.toLowerCase();
+  const bull = ["surge","soar","rally","gain","rise","bull","ath","high","launch","partner","approv","pump","breakout","upgrade","adopt"];
+  const bear = ["crash","dump","plunge","drop","fall","ban","hack","exploit","lawsuit","crackdown","bear","reject","sell","scam","fraud"];
+  const bScore = bull.filter(w => t.includes(w)).length;
+  const sScore = bear.filter(w => t.includes(w)).length;
+  if (bScore > sScore) return { label: "利多", color: "#00e89d", bg: "rgba(0,232,157,0.12)" };
+  if (sScore > bScore) return { label: "利空", color: "#ff5270", bg: "rgba(255,82,112,0.12)" };
+  return { label: "中性", color: "#ffd645", bg: "rgba(255,214,69,0.12)" };
+}
+
 async function fetchNews() {
   // Try cryptocurrency.cv free API first (CORS-friendly)
   try {
@@ -103,33 +174,44 @@ async function fetchNews() {
       const articles = d.articles || d.data || d;
       if (Array.isArray(articles) && articles.length > 0) {
         return articles.slice(0, 12).map(n => ({
-          title: n.title || "",
+          titleOriginal: n.title || "",
+          title: translateTitle(n.title || ""),
           source: n.source || "",
           url: n.link || n.url || "",
           time: n.pubDate ? new Date(n.pubDate) : new Date(),
           tags: (n.tickers || n.categories || "").split ? (n.tickers || n.categories || "").split(",").filter(Boolean).slice(0, 3) : [],
+          sentiment: detectSentiment(n.title || ""),
         }));
       }
     }
   } catch {}
-  // Fallback: CoinGecko trending items as news-like data
+  // Fallback: CoinGecko trending items as news-like data (already in Chinese)
   try {
     const r = await fetch(`${COINGECKO}/search/trending`);
     if (r.ok) {
       const d = await r.json();
-      const nfts = d.nfts || [];
-      const cats = d.categories || [];
       const coins = (d.coins || []).slice(0, 8);
+      const cats = d.categories || [];
       const items = coins.map(c => ({
-        title: `${c.item.name} (${c.item.symbol}) 成為過去 24H 熱搜第 ${(c.item.score||0)+1} 名 — 市值排名 #${c.item.market_cap_rank||"?"}`,
+        title: `${c.item.name}（${c.item.symbol}）成為 24H 熱搜第 ${(c.item.score||0)+1} 名，市值排名 #${c.item.market_cap_rank||"?"}`,
+        titleOriginal: "",
         source: "CoinGecko Trending",
         url: `https://www.coingecko.com/en/coins/${c.item.id}`,
         time: new Date(),
         tags: [c.item.symbol?.toUpperCase()].filter(Boolean),
+        sentiment: { label: "熱門", color: "#4a90ff", bg: "rgba(74,144,255,0.12)" },
       }));
       if (cats.length > 0) {
         cats.slice(0, 4).forEach(cat => {
-          items.push({ title: `🔥 熱門板塊：${cat.name} — 24H 市值變化 ${cat.data?.market_cap_change_percentage_24h?.usd?.toFixed(2)||"?"}%`, source: "CoinGecko Categories", url: "https://www.coingecko.com/en/categories", time: new Date(), tags: ["板塊"] });
+          items.push({
+            title: `🔥 熱門板塊：${cat.name} — 24H 市值變化 ${cat.data?.market_cap_change_percentage_24h?.usd?.toFixed(2)||"?"}%`,
+            titleOriginal: "",
+            source: "CoinGecko",
+            url: "https://www.coingecko.com/en/categories",
+            time: new Date(),
+            tags: ["板塊"],
+            sentiment: { label: "板塊", color: "#ffaa30", bg: "rgba(255,170,48,0.12)" },
+          });
         });
       }
       return items.slice(0, 12);
@@ -161,6 +243,165 @@ async function fetchAllData(sp) {
   const memeCoins=MEME_LIST.map(m=>{const t=tMap[m.symbol];if(!t)return null;return{symbol:m.d,name:m.name,price:parseFloat(t.lastPrice),change:parseFloat(t.priceChangePercent),volume:parseFloat(t.quoteVolume),trades:parseInt(t.count)}}).filter(Boolean);
 
   return{coins,trending,news,fearGreed,unlocks,memeCoins};
+}
+
+// ─── Investment Advice Engine ───
+function generateAdvice(coins, trending, fearGreed, unlocks, memeCoins) {
+  if (!coins || coins.length === 0) return [];
+  const fg = fearGreed?.current || 50;
+
+  // Market regime
+  const regime = fg <= 25 ? "extreme_fear" : fg <= 40 ? "fear" : fg <= 60 ? "neutral" : fg <= 75 ? "greed" : "extreme_greed";
+
+  // Unlock pressure map
+  const unlockPressure = {};
+  (unlocks || []).forEach(u => { unlockPressure[u.token] = u.pct; });
+
+  // Trending set
+  const trendingSet = new Set((trending || []).map(t => t.symbol));
+
+  // Score each coin
+  const scored = coins.map(c => {
+    let score = 50; // base
+    const chg = c.change24h || 0;
+    const spark = c.sparkline || [];
+
+    // 1. Momentum: 24h change
+    if (chg > 5) score += 15;
+    else if (chg > 2) score += 10;
+    else if (chg > 0) score += 5;
+    else if (chg > -2) score -= 3;
+    else if (chg > -5) score -= 10;
+    else score -= 18;
+
+    // 2. Trend consistency: sparkline direction
+    if (spark.length >= 6) {
+      const firstHalf = spark.slice(0, Math.floor(spark.length / 2));
+      const secondHalf = spark.slice(Math.floor(spark.length / 2));
+      const avgFirst = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+      const avgSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+      if (avgSecond > avgFirst * 1.02) score += 10; // uptrend
+      else if (avgSecond < avgFirst * 0.98) score -= 8; // downtrend
+    }
+
+    // 3. Volume strength
+    const volRatio = c.volume / (coins[0]?.volume || 1);
+    if (volRatio > 0.3) score += 5;
+
+    // 4. Is it trending on CoinGecko?
+    if (trendingSet.has(c.symbol)) score += 12;
+
+    // 5. Unlock pressure penalty
+    const uPressure = unlockPressure[c.symbol] || 0;
+    if (uPressure > 2) score -= 15;
+    else if (uPressure > 1) score -= 8;
+
+    // 6. Fear/Greed context
+    if (regime === "extreme_fear" && chg < -3) score += 8; // contrarian buy signal
+    if (regime === "extreme_greed" && chg > 10) score -= 10; // overheated
+
+    // Volatility from sparkline
+    let volatility = 0;
+    if (spark.length >= 4) {
+      const avg = spark.reduce((a, b) => a + b, 0) / spark.length;
+      volatility = Math.sqrt(spark.reduce((s, v) => s + (v - avg) ** 2, 0) / spark.length) / avg * 100;
+    }
+
+    // Risk level
+    let risk, riskColor, riskBg;
+    if (volatility > 5 || Math.abs(chg) > 8 || uPressure > 2) {
+      risk = "積極"; riskColor = "#ff5270"; riskBg = "rgba(255,82,112,0.12)";
+    } else if (volatility > 2.5 || Math.abs(chg) > 4 || uPressure > 1) {
+      risk = "穩健"; riskColor = "#ffd645"; riskBg = "rgba(255,214,69,0.12)";
+    } else {
+      risk = "保守"; riskColor = "#00e89d"; riskBg = "rgba(0,232,157,0.12)";
+    }
+
+    // Short-term signal
+    let shortTerm, shortColor;
+    if (chg > 3 && score > 60) { shortTerm = "短線看多"; shortColor = "#00e89d"; }
+    else if (chg < -3 && fg < 40) { shortTerm = "逢低布局"; shortColor = "#4a90ff"; }
+    else if (chg < -5) { shortTerm = "短線觀望"; shortColor = "#ff5270"; }
+    else if (chg > 8) { shortTerm = "注意回調"; shortColor = "#ffaa30"; }
+    else { shortTerm = "區間整理"; shortColor = C.textDim; }
+
+    // Mid-term signal
+    let midTerm, midColor;
+    if (score >= 70 && !uPressure) { midTerm = "中線看好"; midColor = "#00e89d"; }
+    else if (score >= 60) { midTerm = "溫和看多"; midColor = "#66ee88"; }
+    else if (score >= 45) { midTerm = "中性持有"; midColor = C.textDim; }
+    else if (score >= 30) { midTerm = "減倉觀望"; midColor = "#ffaa30"; }
+    else { midTerm = "建議迴避"; midColor = "#ff5270"; }
+
+    // Reason
+    const reasons = [];
+    if (chg > 5) reasons.push(`24H 漲 ${chg.toFixed(1)}%，動能強勁`);
+    else if (chg < -5) reasons.push(`24H 跌 ${Math.abs(chg).toFixed(1)}%，短期承壓`);
+    if (trendingSet.has(c.symbol)) reasons.push("CoinGecko 熱搜上榜");
+    if (uPressure > 1.5) reasons.push(`近期解鎖 ${uPressure}% 供應量，注意拋壓`);
+    if (regime === "extreme_fear" && chg < 0) reasons.push("市場極度恐懼，可能是反轉機會");
+    if (regime === "extreme_greed" && chg > 5) reasons.push("市場極度貪婪，小心追高");
+    if (volatility > 5) reasons.push("波動率偏高，適合短線操作");
+    if (reasons.length === 0) reasons.push("走勢平穩，無明顯訊號");
+
+    return {
+      symbol: c.symbol, name: c.name, price: c.price, change: chg,
+      score, risk, riskColor, riskBg,
+      shortTerm, shortColor, midTerm, midColor,
+      reason: reasons.slice(0, 2).join("；"),
+      sparkline: c.sparkline,
+    };
+  });
+
+  // Also check meme coins for high-score outliers
+  const memeScored = (memeCoins || []).filter(m => !scored.find(s => s.symbol === m.symbol)).map(m => {
+    const chg = m.change || 0;
+    let score = 40;
+    if (chg > 10) score += 20;
+    else if (chg > 5) score += 12;
+    else if (chg < -5) score -= 15;
+    if (trendingSet.has(m.symbol)) score += 15;
+
+    const risk = "積極";
+    const riskColor = "#ff5270";
+    const riskBg = "rgba(255,82,112,0.12)";
+
+    let shortTerm, shortColor;
+    if (chg > 10) { shortTerm = "短線爆發"; shortColor = "#00e89d"; }
+    else if (chg > 0) { shortTerm = "觀察中"; shortColor = C.textDim; }
+    else { shortTerm = "短線觀望"; shortColor = "#ff5270"; }
+
+    return {
+      symbol: m.symbol, name: m.name, price: m.price, change: chg,
+      score, risk, riskColor, riskBg,
+      shortTerm, shortColor,
+      midTerm: "高風險投機", midColor: "#ffaa30",
+      reason: chg > 10 ? `24H 飆漲 ${chg.toFixed(1)}%，迷因幣爆發中` : "迷因幣波動大，純投機標的",
+      sparkline: [],
+      isMeme: true,
+    };
+  });
+
+  const all = [...scored, ...memeScored];
+  // Pick top 5 by absolute score interest (highest + most extreme)
+  all.sort((a, b) => b.score - a.score);
+  return all.slice(0, 5);
+}
+
+// ─── Market Summary for Advice Header ───
+function getMarketSummary(coins, fearGreed) {
+  const fg = fearGreed?.current || 50;
+  const btc = coins[0];
+  const avgChg = coins.reduce((s, c) => s + (c.change24h || 0), 0) / (coins.length || 1);
+
+  let overall, overallColor;
+  if (avgChg > 3 && fg > 55) { overall = "多頭偏強"; overallColor = "#00e89d"; }
+  else if (avgChg > 1) { overall = "溫和上漲"; overallColor = "#66ee88"; }
+  else if (avgChg > -1) { overall = "盤整震盪"; overallColor = "#ffd645"; }
+  else if (avgChg > -3) { overall = "偏弱整理"; overallColor = "#ffaa30"; }
+  else { overall = "空頭壓力"; overallColor = "#ff5270"; }
+
+  return { overall, overallColor, avgChg, fg, btcChg: btc?.change24h || 0 };
 }
 
 // ─── Components ───
@@ -203,6 +444,8 @@ export default function CryptoDailyReport(){
   useEffect(()=>{load();const iv=setInterval(load,120000);return()=>clearInterval(iv)},[load]);
 
   const totalVol=coins.reduce((s,c)=>s+(c.volume||0),0);
+  const advice = generateAdvice(coins, trending, fearGreed, unlocks, memeCoins);
+  const mktSummary = getMarketSummary(coins, fearGreed);
   const th={padding:"10px 12px",color:C.textDim,fontWeight:500,fontSize:11,fontFamily:"'JetBrains Mono',monospace",textTransform:"uppercase",letterSpacing:1,whiteSpace:"nowrap"};
   const card={padding:"16px 18px",borderRadius:8,background:C.bgCard,border:`1px solid ${C.border}`};
 
@@ -274,6 +517,78 @@ export default function CryptoDailyReport(){
           <Src text="Binance Spot API · /api/v3/ticker/24hr + /api/v3/klines"/>
         </section>
 
+        {/* ═══ 投資建議 ═══ */}
+        <section id="s-advice" style={{marginBottom:48,animation:"fadeUp .5s ease"}}>
+          <ST icon="⚡" title="投資建議" subtitle="綜合幣價動能、恐懼貪婪、熱度、代幣釋放等數據自動分析"/>
+
+          {/* Market Overview Bar */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:12,marginBottom:20}}>
+            <div style={card}>
+              <div style={{fontSize:10,color:C.textDim,fontFamily:"'JetBrains Mono',monospace",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>大盤趨勢</div>
+              <div style={{fontSize:18,fontWeight:700,color:mktSummary.overallColor,fontFamily:"'JetBrains Mono',monospace"}}>{mktSummary.overall}</div>
+            </div>
+            <div style={card}>
+              <div style={{fontSize:10,color:C.textDim,fontFamily:"'JetBrains Mono',monospace",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>平均漲跌</div>
+              <div style={{fontSize:18,fontWeight:700,color:clr(mktSummary.avgChg),fontFamily:"'JetBrains Mono',monospace"}}>{ps(mktSummary.avgChg)}</div>
+            </div>
+            <div style={card}>
+              <div style={{fontSize:10,color:C.textDim,fontFamily:"'JetBrains Mono',monospace",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>BTC 動向</div>
+              <div style={{fontSize:18,fontWeight:700,color:clr(mktSummary.btcChg),fontFamily:"'JetBrains Mono',monospace"}}>{ps(mktSummary.btcChg)}</div>
+            </div>
+            <div style={card}>
+              <div style={{fontSize:10,color:C.textDim,fontFamily:"'JetBrains Mono',monospace",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>市場情緒</div>
+              <div style={{fontSize:18,fontWeight:700,color:mktSummary.fg>55?C.green:mktSummary.fg>45?C.yellow:C.red,fontFamily:"'JetBrains Mono',monospace"}}>{mktSummary.fg}</div>
+            </div>
+          </div>
+
+          {/* Top 5 Picks */}
+          <div style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:12}}>🎯 今日最值得關注 Top 5</div>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {advice.map((a,i)=>(
+              <div key={i} style={{padding:"18px 20px",borderRadius:10,background:C.bgCard,border:`1px solid ${i===0?`${C.accent}44`:C.border}`,animation:`fadeUp .4s ease ${i*.08}s both`,position:"relative",overflow:"hidden"}}>
+                {i===0&&<div style={{position:"absolute",top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,${C.accent},${C.green})`}}/>}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12,flexWrap:"wrap",gap:8}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,fontWeight:700,color:i===0?C.accent:C.textDim,width:24}}>#{i+1}</span>
+                    <div>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <span style={{fontSize:18,fontWeight:700,color:C.text}}>{a.symbol}</span>
+                        <span style={{fontSize:12,color:C.textDim}}>{a.name}</span>
+                        {a.isMeme&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:3,background:`${C.orange}20`,color:C.orange}}>MEME</span>}
+                      </div>
+                      <div style={{fontSize:12,fontFamily:"'JetBrains Mono',monospace",color:C.textDim,marginTop:2}}>
+                        {fmtP(a.price)} USDT <span style={{color:clr(a.change),fontWeight:600,marginLeft:6}}>{ps(a.change)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                    <span style={{fontSize:10,padding:"3px 10px",borderRadius:5,background:a.riskBg,color:a.riskColor,fontWeight:600}}>風險：{a.risk}</span>
+                    {a.sparkline&&a.sparkline.length>2&&<Sparkline data={a.sparkline} color={clr(a.change)} width={70} height={24}/>}
+                  </div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:10}}>
+                  <div style={{padding:"10px 14px",borderRadius:6,background:`${a.shortColor}10`,border:`1px solid ${a.shortColor}25`}}>
+                    <div style={{fontSize:9,color:C.textDim,fontFamily:"'JetBrains Mono',monospace",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>短線（1-7天）</div>
+                    <div style={{fontSize:15,fontWeight:700,color:a.shortColor}}>{a.shortTerm}</div>
+                  </div>
+                  <div style={{padding:"10px 14px",borderRadius:6,background:`${a.midColor}10`,border:`1px solid ${a.midColor}25`}}>
+                    <div style={{fontSize:9,color:C.textDim,fontFamily:"'JetBrains Mono',monospace",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>中線（1-3個月）</div>
+                    <div style={{fontSize:15,fontWeight:700,color:a.midColor}}>{a.midTerm}</div>
+                  </div>
+                </div>
+                <div style={{fontSize:12,color:C.textDim,lineHeight:1.6,paddingLeft:2}}>
+                  💬 {a.reason}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{marginTop:16,padding:"12px 16px",borderRadius:8,background:`${C.accent}08`,border:`1px solid ${C.accent}20`,fontSize:11,color:C.textDim,lineHeight:1.6}}>
+            ⚠️ <strong style={{color:C.accent}}>免責聲明：</strong>以上建議由演算法根據即時市場數據（價格動能、恐懼貪婪指數、社群熱度、代幣釋放壓力）自動生成，僅供參考，不構成投資建議。加密貨幣市場波動劇烈，投資前請自行評估風險。
+          </div>
+          <Src text="演算法：Binance 24H 數據 + CoinGecko 熱度 + Fear & Greed + 代幣釋放綜合評分"/>
+        </section>
+
         {/* ═══ 熱度排行 ═══ */}
         <section id="s-trending" style={{marginBottom:48,animation:"fadeUp .5s ease"}}>
           <ST icon="△" title="近期熱度排行榜" subtitle="CoinGecko Trending API · 過去 24H 搜尋熱度即時排名"/>
@@ -292,21 +607,25 @@ export default function CryptoDailyReport(){
 
         {/* ═══ 每日新聞 ═══ */}
         <section id="s-news" style={{marginBottom:48,animation:"fadeUp .5s ease"}}>
-          <ST icon="▤" title="每日新聞" subtitle="即時熱門新聞 · 點擊開啟原文"/>
+          <ST icon="▤" title="每日新聞" subtitle="即時熱門新聞 · 自動翻譯 · 點擊開啟原文"/>
           {news.length===0?<div style={{padding:20,textAlign:"center",color:C.textDim}}>新聞載入中...</div>:
           <div style={{display:"flex",flexDirection:"column",gap:6}}>
-            {news.map((n,i)=><a key={i} href={n.url} target="_blank" rel="noopener noreferrer" style={{textDecoration:"none",color:"inherit",display:"grid",gridTemplateColumns:"60px 1fr",gap:12,alignItems:"center",padding:"14px 16px",borderRadius:8,background:C.bgCard,border:`1px solid ${C.border}`,animation:`slideIn .3s ease ${i*.04}s both`,transition:"background .2s",cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background=C.bgHover} onMouseLeave={e=>e.currentTarget.style.background=C.bgCard}>
+            {news.map((n,i)=><a key={i} href={n.url} target="_blank" rel="noopener noreferrer" style={{textDecoration:"none",color:"inherit",display:"grid",gridTemplateColumns:"60px 1fr auto",gap:12,alignItems:"center",padding:"14px 16px",borderRadius:8,background:C.bgCard,border:`1px solid ${C.border}`,animation:`slideIn .3s ease ${i*.04}s both`,transition:"background .2s",cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background=C.bgHover} onMouseLeave={e=>e.currentTarget.style.background=C.bgCard}>
               <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:C.textDim}}>{n.time.toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})}</div>
               <div>
-                <div style={{fontSize:13,fontWeight:500,lineHeight:1.5,marginBottom:6,color:C.text}}>{n.title}</div>
+                <div style={{fontSize:13,fontWeight:500,lineHeight:1.6,marginBottom:4,color:C.text}}>{n.title}</div>
+                {n.titleOriginal&&<div style={{fontSize:10,color:C.textMuted,lineHeight:1.4,marginBottom:6,fontStyle:"italic"}}>{n.titleOriginal}</div>}
                 <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
                   <span style={{fontSize:10,color:C.accent,fontWeight:600}}>{n.source}</span>
                   {n.tags.map((tag,j)=><span key={j} style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:`${C.accent}15`,color:C.textDim}}>{tag}</span>)}
                 </div>
               </div>
+              {n.sentiment&&<div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+                <span style={{fontSize:10,padding:"2px 10px",borderRadius:4,background:n.sentiment.bg,color:n.sentiment.color,fontWeight:600,whiteSpace:"nowrap"}}>{n.sentiment.label}</span>
+              </div>}
             </a>)}
           </div>}
-          <Src text="cryptocurrency.cv / CoinGecko Trending · 免費、無需Key"/>
+          <Src text="cryptocurrency.cv / CoinGecko Trending · 免費、無需Key · 自動中文翻譯"/>
         </section>
 
         {/* ═══ 代幣釋放 ═══ */}
