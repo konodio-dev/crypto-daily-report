@@ -59,27 +59,27 @@ const SECTIONS = [
 // ─── Utils ───
 const fmt=(n,d=2)=>{if(n==null||isNaN(n))return"—";const a=Math.abs(n);if(a>=1e12)return(n/1e12).toFixed(d)+"T";if(a>=1e9)return(n/1e9).toFixed(d)+"B";if(a>=1e6)return(n/1e6).toFixed(d)+"M";if(a>=1e3)return(n/1e3).toFixed(d)+"K";return Number(n).toFixed(d)};
 const fmtP=n=>{if(n==null||isNaN(n))return"—";const v=Number(n);if(v>=1000)return v.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});if(v>=1)return v.toFixed(4);if(v>=0.0001)return v.toFixed(6);return v.toFixed(10)};
-const clr=v=>v>=0?"#26a69a":"#ef5350";
+const clr=v=>v>=0?"#00e89d":"#ff5270";
 const ps=v=>(v==null||isNaN(v))?"—":(v>=0?"+":"")+Number(v).toFixed(2)+"%";
 const todayStr=()=>new Date().toLocaleDateString("zh-TW",{year:"numeric",month:"long",day:"numeric",weekday:"long"});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 // ─── TradingView Color Palette ───
 const C = {
-  bg: "#131722",
-  bgCard: "#1e222d",
-  bgHover: "#2a2e39",
-  border: "#2a2e39",
-  borderLight: "#363a45",
-  text: "#d1d4dc",
-  textDim: "#787b86",
-  textMuted: "#4a4e59",
-  accent: "#2962ff",
-  green: "#26a69a",
-  red: "#ef5350",
-  yellow: "#f7c948",
-  orange: "#ff9800",
-  header: "#1e222d",
+  bg: "#0f1524",
+  bgCard: "#182036",
+  bgHover: "#1e2a48",
+  border: "#263256",
+  borderLight: "#3a4a70",
+  text: "#eef0f6",
+  textDim: "#a0a8c0",
+  textMuted: "#6b7590",
+  accent: "#4a90ff",
+  green: "#00e89d",
+  red: "#ff5270",
+  yellow: "#ffd645",
+  orange: "#ffaa30",
+  header: "#182036",
 };
 
 // ─── Data Fetchers ───
@@ -95,18 +95,47 @@ async function fetchTrending() {
   try{const r=await fetch(`${COINGECKO}/search/trending`);if(!r.ok)return[];const d=await r.json();return(d.coins||[]).slice(0,10).map((c,i)=>({rank:i+1,symbol:c.item.symbol?.toUpperCase()||"?",name:c.item.name||"",change:c.item.data?.price_change_percentage_24h?.usd??0,mcRank:c.item.market_cap_rank||"—",thumb:c.item.thumb||"",score:c.item.score??i}));}catch{return[];}
 }
 async function fetchNews() {
+  // Try cryptocurrency.cv free API first (CORS-friendly)
   try {
-    const r = await fetch("https://min-api.cryptocompare.com/data/v2/news/?lang=EN&sortOrder=popular");
-    if (!r.ok) return [];
-    const d = await r.json();
-    return (d.Data || []).slice(0, 12).map(n => ({
-      title: n.title || "",
-      source: n.source_info?.name || n.source || "",
-      url: n.guid || n.url || "",
-      time: n.published_on ? new Date(n.published_on * 1000) : new Date(),
-      tags: (n.categories || "").split("|").filter(Boolean).slice(0, 3),
-    }));
-  } catch { return []; }
+    const r = await fetch("https://cryptocurrency.cv/api/news?limit=12");
+    if (r.ok) {
+      const d = await r.json();
+      const articles = d.articles || d.data || d;
+      if (Array.isArray(articles) && articles.length > 0) {
+        return articles.slice(0, 12).map(n => ({
+          title: n.title || "",
+          source: n.source || "",
+          url: n.link || n.url || "",
+          time: n.pubDate ? new Date(n.pubDate) : new Date(),
+          tags: (n.tickers || n.categories || "").split ? (n.tickers || n.categories || "").split(",").filter(Boolean).slice(0, 3) : [],
+        }));
+      }
+    }
+  } catch {}
+  // Fallback: CoinGecko trending items as news-like data
+  try {
+    const r = await fetch(`${COINGECKO}/search/trending`);
+    if (r.ok) {
+      const d = await r.json();
+      const nfts = d.nfts || [];
+      const cats = d.categories || [];
+      const coins = (d.coins || []).slice(0, 8);
+      const items = coins.map(c => ({
+        title: `${c.item.name} (${c.item.symbol}) 成為過去 24H 熱搜第 ${(c.item.score||0)+1} 名 — 市值排名 #${c.item.market_cap_rank||"?"}`,
+        source: "CoinGecko Trending",
+        url: `https://www.coingecko.com/en/coins/${c.item.id}`,
+        time: new Date(),
+        tags: [c.item.symbol?.toUpperCase()].filter(Boolean),
+      }));
+      if (cats.length > 0) {
+        cats.slice(0, 4).forEach(cat => {
+          items.push({ title: `🔥 熱門板塊：${cat.name} — 24H 市值變化 ${cat.data?.market_cap_change_percentage_24h?.usd?.toFixed(2)||"?"}%`, source: "CoinGecko Categories", url: "https://www.coingecko.com/en/categories", time: new Date(), tags: ["板塊"] });
+        });
+      }
+      return items.slice(0, 12);
+    }
+  } catch {}
+  return [];
 }
 async function fetchFearGreed() {
   try{const r=await fetch(`${FEAR_GREED}/?limit=7&format=json`);if(!r.ok)return{current:50,label:"",history:[]};const d=await r.json();const items=d.data||[];return{current:parseInt(items[0]?.value)||50,label:items[0]?.value_classification||"",history:items.map(i=>({value:parseInt(i.value),date:new Date(i.timestamp*1000).toLocaleDateString("zh-TW",{month:"numeric",day:"numeric"})}))};}catch{return{current:50,label:"",history:[]};}
@@ -143,11 +172,11 @@ function Sparkline({data,color="#26a69a",width=120,height=32}){
   return<svg width={width} height={height} style={{display:"block"}}><defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.3"/><stop offset="100%" stopColor={color} stopOpacity="0"/></linearGradient></defs><polyline fill="none" stroke={color} strokeWidth="1.5" points={pts}/><polygon fill={`url(#${gid})`} points={`0,${height} ${pts} ${width},${height}`}/></svg>;
 }
 function FearGreedGauge({value,label}){
-  const angle=(value/100)*180-90;const gc=value<=25?"#ef5350":value<=45?C.orange:value<=55?C.yellow:value<=75?"#66bb6a":"#26a69a";
+  const angle=(value/100)*180-90;const gc=value<=25?"#ff5270":value<=45?C.orange:value<=55?C.yellow:value<=75?"#66ee88":"#00e89d";
   const lb=label||(value<=25?"極度恐懼":value<=45?"恐懼":value<=55?"中性":value<=75?"貪婪":"極度貪婪");
-  return<div style={{textAlign:"center",padding:"20px 0"}}><svg width="240" height="140" viewBox="0 0 240 140"><defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#ef5350"/><stop offset="25%" stopColor={C.orange}/><stop offset="50%" stopColor={C.yellow}/><stop offset="75%" stopColor="#66bb6a"/><stop offset="100%" stopColor="#26a69a"/></linearGradient></defs><path d="M 20 120 A 100 100 0 0 1 220 120" fill="none" stroke={C.border} strokeWidth="16" strokeLinecap="round"/><path d="M 20 120 A 100 100 0 0 1 220 120" fill="none" stroke="url(#gg)" strokeWidth="12" strokeLinecap="round" opacity="0.7"/><line x1="120" y1="120" x2={120+75*Math.cos(angle*Math.PI/180)} y2={120+75*Math.sin(angle*Math.PI/180)} stroke={gc} strokeWidth="3" strokeLinecap="round"/><circle cx="120" cy="120" r="6" fill={gc}/><text x="120" y="105" textAnchor="middle" fill={C.text} fontSize="28" fontWeight="700" fontFamily="'JetBrains Mono',monospace">{value}</text></svg><div style={{fontSize:18,fontWeight:700,color:gc,marginTop:-4,letterSpacing:2}}>{lb}</div></div>;
+  return<div style={{textAlign:"center",padding:"20px 0"}}><svg width="240" height="140" viewBox="0 0 240 140"><defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#ff5270"/><stop offset="25%" stopColor={C.orange}/><stop offset="50%" stopColor={C.yellow}/><stop offset="75%" stopColor="#66ee88"/><stop offset="100%" stopColor="#00e89d"/></linearGradient></defs><path d="M 20 120 A 100 100 0 0 1 220 120" fill="none" stroke={C.border} strokeWidth="16" strokeLinecap="round"/><path d="M 20 120 A 100 100 0 0 1 220 120" fill="none" stroke="url(#gg)" strokeWidth="12" strokeLinecap="round" opacity="0.7"/><line x1="120" y1="120" x2={120+75*Math.cos(angle*Math.PI/180)} y2={120+75*Math.sin(angle*Math.PI/180)} stroke={gc} strokeWidth="3" strokeLinecap="round"/><circle cx="120" cy="120" r="6" fill={gc}/><text x="120" y="105" textAnchor="middle" fill={C.text} fontSize="28" fontWeight="700" fontFamily="'JetBrains Mono',monospace">{value}</text></svg><div style={{fontSize:18,fontWeight:700,color:gc,marginTop:-4,letterSpacing:2}}>{lb}</div></div>;
 }
-function HeatBar({value}){const c=value>=80?"#ef5350":value>=60?C.orange:value>=40?C.yellow:C.textMuted;return<div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:60,height:6,borderRadius:3,background:C.border}}><div style={{width:`${value}%`,height:"100%",borderRadius:3,background:c}}/></div><span style={{fontSize:11,color:C.textDim,fontFamily:"'JetBrains Mono',monospace"}}>{value}</span></div>;}
+function HeatBar({value}){const c=value>=80?"#ff5270":value>=60?C.orange:value>=40?C.yellow:C.textMuted;return<div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:60,height:6,borderRadius:3,background:C.border}}><div style={{width:`${value}%`,height:"100%",borderRadius:3,background:c}}/></div><span style={{fontSize:11,color:C.textDim,fontFamily:"'JetBrains Mono',monospace"}}>{value}</span></div>;}
 function ST({icon,title,subtitle}){return<div style={{marginBottom:20}}><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}><span style={{fontSize:16,color:C.accent}}>{icon}</span><h2 style={{fontSize:20,fontWeight:700,letterSpacing:-0.5,color:C.text}}>{title}</h2></div>{subtitle&&<div style={{fontSize:12,color:C.textDim,marginLeft:26}}>{subtitle}</div>}</div>;}
 function Src({text}){return<div style={{marginTop:8,fontSize:10,color:C.textMuted,fontFamily:"'JetBrains Mono',monospace",textAlign:"right"}}>{text}</div>;}
 
@@ -188,7 +217,7 @@ export default function CryptoDailyReport(){
         @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
         @keyframes slideIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
-        section[id^="s-"]{scroll-margin-top:120px}
+        section[id^="s-"]{scroll-margin-top:140px}
       `}</style>
 
       {/* Header */}
@@ -263,7 +292,7 @@ export default function CryptoDailyReport(){
 
         {/* ═══ 每日新聞 ═══ */}
         <section id="s-news" style={{marginBottom:48,animation:"fadeUp .5s ease"}}>
-          <ST icon="▤" title="每日新聞" subtitle="CryptoCompare News API · 即時熱門新聞 · 點擊開啟原文"/>
+          <ST icon="▤" title="每日新聞" subtitle="即時熱門新聞 · 點擊開啟原文"/>
           {news.length===0?<div style={{padding:20,textAlign:"center",color:C.textDim}}>新聞載入中...</div>:
           <div style={{display:"flex",flexDirection:"column",gap:6}}>
             {news.map((n,i)=><a key={i} href={n.url} target="_blank" rel="noopener noreferrer" style={{textDecoration:"none",color:"inherit",display:"grid",gridTemplateColumns:"60px 1fr",gap:12,alignItems:"center",padding:"14px 16px",borderRadius:8,background:C.bgCard,border:`1px solid ${C.border}`,animation:`slideIn .3s ease ${i*.04}s both`,transition:"background .2s",cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background=C.bgHover} onMouseLeave={e=>e.currentTarget.style.background=C.bgCard}>
@@ -277,7 +306,7 @@ export default function CryptoDailyReport(){
               </div>
             </a>)}
           </div>}
-          <Src text="CryptoCompare · /data/v2/news/?lang=EN（免費、無需Key）"/>
+          <Src text="cryptocurrency.cv / CoinGecko Trending · 免費、無需Key"/>
         </section>
 
         {/* ═══ 代幣釋放 ═══ */}
@@ -353,7 +382,7 @@ export default function CryptoDailyReport(){
             <div style={{...card,padding:20}}><FearGreedGauge value={fearGreed.current} label={fearGreed.label}/></div>
             <div style={{...card,padding:20}}>
               <div style={{fontSize:13,fontWeight:600,marginBottom:16,color:C.text}}>過去 7 天趨勢</div>
-              {fearGreed.history.length>0?fearGreed.history.map((h,i)=>{const gc=h.value<=25?C.red:h.value<=45?C.orange:h.value<=55?C.yellow:h.value<=75?"#66bb6a":C.green;return<div key={i} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+              {fearGreed.history.length>0?fearGreed.history.map((h,i)=>{const gc=h.value<=25?C.red:h.value<=45?C.orange:h.value<=55?C.yellow:h.value<=75?"#66ee88":C.green;return<div key={i} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
                 <div style={{width:40,fontSize:11,color:C.textDim,fontFamily:"'JetBrains Mono',monospace"}}>{h.date}</div>
                 <div style={{flex:1,height:6,borderRadius:3,background:C.border}}><div style={{width:`${h.value}%`,height:"100%",borderRadius:3,background:gc}}/></div>
                 <div style={{width:28,textAlign:"right",fontSize:12,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,color:gc}}>{h.value}</div>
@@ -370,7 +399,7 @@ export default function CryptoDailyReport(){
             {[
               {n:"Binance Spot API",s:"✅ 即時",c:C.green,d:"幣價、漲跌、K線、迷因幣、代幣釋放估值",ep:"/ticker/24hr · /klines"},
               {n:"CoinGecko Trending",s:"✅ 即時",c:C.green,d:"熱度排行榜 Top 10",ep:"/search/trending"},
-              {n:"CryptoCompare News",s:"✅ 即時",c:C.green,d:"每日熱門新聞 12 則（可點擊原文）",ep:"/data/v2/news/"},
+              {n:"Crypto News",s:"✅ 即時",c:C.green,d:"每日熱門新聞（cryptocurrency.cv + CoinGecko fallback）",ep:"/api/news"},
               {n:"Alternative.me",s:"✅ 即時",c:C.green,d:"恐懼貪婪指數 + 7 日歷史",ep:"/?limit=7"},
               {n:"代幣釋放排程",s:"📋 人工",c:C.yellow,d:"DeFi Llama unlocks 需付費，改人工維護 + Binance 估值",ep:"—"},
               {n:"Smart Money 錢包",s:"📋 公開",c:C.yellow,d:"Nansen/Arkham 需付費，目前用公開機構錢包+Etherscan",ep:"—"},
