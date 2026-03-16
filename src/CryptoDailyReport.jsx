@@ -95,69 +95,124 @@ async function fetchKlines(symbol) {
 async function fetchTrending() {
   try{const r=await fetch(`${COINGECKO}/search/trending`);if(!r.ok)return[];const d=await r.json();return(d.coins||[]).slice(0,10).map((c,i)=>({rank:i+1,symbol:c.item.symbol?.toUpperCase()||"?",name:c.item.name||"",change:c.item.data?.price_change_percentage_24h?.usd??0,mcRank:c.item.market_cap_rank||"—",thumb:c.item.thumb||"",score:c.item.score??i}));}catch{return[];}
 }
-// ─── English→Chinese crypto term dictionary ───
-const DICT = {
-  // Verbs & actions
-  "hits":"突破","reaches":"觸及","surges":"飆升","surged":"飆升","soars":"暴漲","soared":"暴漲",
-  "plunges":"暴跌","plunged":"暴跌","drops":"下跌","dropped":"下跌","falls":"下跌","fell":"下跌",
-  "rises":"上漲","rose":"上漲","gains":"上漲","rallies":"反彈","rallied":"反彈","rebounds":"反彈",
-  "crashes":"崩盤","crashed":"崩盤","dumps":"暴跌","pumps":"暴漲","moons":"飆升",
-  "launches":"推出","launched":"推出","announces":"宣布","announced":"宣布",
-  "approves":"批准","approved":"批准","rejects":"否決","rejected":"否決",
-  "partners":"合作","partnered":"合作","acquires":"收購","acquired":"收購",
-  "lists":"上架","listed":"上架","delists":"下架","delisted":"下架",
-  "bans":"禁止","banned":"禁止","targets":"目標","updates":"更新","updated":"更新",
-  "integrates":"整合","integrated":"整合","unveils":"公布","unveiled":"公布",
-  "files":"申請","filed":"已申請","considers":"考慮","proposes":"提議","proposed":"提議",
-  "raises":"募資","raised":"募資","secures":"獲得","secured":"獲得",
-  "warns":"警告","warned":"警告","investigates":"調查",
-  // Nouns
-  "Bitcoin":"比特幣","Ethereum":"以太坊","Solana":"Solana","Cardano":"Cardano",
-  "Dogecoin":"狗狗幣","Shiba":"柴犬幣","Ripple":"瑞波",
-  "price":"價格","market":"市場","token":"代幣","tokens":"代幣","coin":"代幣","coins":"代幣",
-  "exchange":"交易所","exchanges":"交易所","wallet":"錢包","wallets":"錢包",
-  "blockchain":"區塊鏈","network":"網路","protocol":"協議","platform":"平台",
-  "trading":"交易","trader":"交易者","traders":"交易者","investor":"投資者","investors":"投資者",
-  "whale":"鯨魚","whales":"鯨魚","bull":"多頭","bear":"空頭","bullish":"看漲","bearish":"看跌",
-  "ETF":"ETF","SEC":"SEC","regulation":"監管","regulatory":"監管","compliance":"合規",
-  "DeFi":"DeFi","NFT":"NFT","stablecoin":"穩定幣","stablecoins":"穩定幣",
-  "airdrop":"空投","staking":"質押","mining":"挖礦","halving":"減半",
-  "all-time high":"歷史新高","ATH":"歷史新高","all-time low":"歷史新低",
-  "support":"支撐","resistance":"壓力","breakout":"突破","breakdown":"跌破",
-  "partnership":"合作","collaboration":"合作","acquisition":"收購","merger":"合併",
-  "launch":"上線","upgrade":"升級","fork":"分叉","mainnet":"主網","testnet":"測試網",
-  "funding":"融資","round":"輪","Series":"輪","venture":"創投",
-  "hack":"駭客攻擊","hacked":"被駭","exploit":"漏洞攻擊","vulnerability":"漏洞",
-  "ban":"禁令","crackdown":"打壓","lawsuit":"訴訟",
-  "layer":"層","L1":"L1","L2":"L2","bridge":"跨鏈橋","cross-chain":"跨鏈",
-  "yield":"收益率","liquidity":"流動性","volume":"成交量","market cap":"市值",
-  "billion":"十億","million":"百萬","trillion":"兆",
-  // People & orgs
-  "Elon Musk":"馬斯克","Trump":"川普","Vitalik":"V神","CZ":"CZ趙長鵬",
-  "BlackRock":"貝萊德","Coinbase":"Coinbase","Binance":"幣安","Grayscale":"灰度",
-  "Fed":"聯準會","Federal Reserve":"聯準會","Congress":"國會","Senate":"參議院",
-  "China":"中國","Japan":"日本","Korea":"韓國","India":"印度","EU":"歐盟","US":"美國","U.S.":"美國",
+// ─── Full Chinese News Rewriter ───
+const NAMES = {
+  "bitcoin":"比特幣","btc":"比特幣","ethereum":"以太坊","eth":"以太坊","solana":"Solana","sol":"Solana",
+  "xrp":"XRP","ripple":"瑞波","bnb":"BNB","binance":"幣安","cardano":"Cardano","ada":"ADA",
+  "dogecoin":"狗狗幣","doge":"狗狗幣","shiba":"柴犬幣","shib":"柴犬幣","avalanche":"Avalanche","avax":"AVAX",
+  "polkadot":"波卡","dot":"DOT","polygon":"Polygon","matic":"MATIC","chainlink":"Chainlink","link":"LINK",
+  "uniswap":"Uniswap","uni":"UNI","aave":"Aave","maker":"MakerDAO","mkr":"MKR",
+  "toncoin":"TON","ton":"TON","sui":"SUI","sei":"SEI","celestia":"Celestia","tia":"TIA",
+  "arbitrum":"Arbitrum","arb":"ARB","optimism":"Optimism","op":"OP","stacks":"Stacks","stx":"STX",
+  "pepe":"PEPE","bonk":"BONK","floki":"FLOKI","wif":"WIF","meme":"迷因幣",
+  "blackrock":"貝萊德","grayscale":"灰度","coinbase":"Coinbase","kraken":"Kraken",
+  "microstrategy":"MicroStrategy","strategy":"Strategy","tesla":"特斯拉",
+  "sec":"美國SEC","fed":"聯準會","federal reserve":"聯準會","congress":"美國國會",
+  "elon musk":"馬斯克","musk":"馬斯克","trump":"川普","vitalik":"V神","cz":"CZ趙長鵬",
+  "gensler":"Gensler","powell":"鮑威爾",
+  "china":"中國","japan":"日本","korea":"韓國","india":"印度","eu":"歐盟","us":"美國","u.s.":"美國","uk":"英國",
+  "hong kong":"香港","singapore":"新加坡","dubai":"杜拜","brazil":"巴西","russia":"俄羅斯",
+  "etf":"ETF","defi":"DeFi","nft":"NFT","dao":"DAO","dex":"去中心化交易所","cex":"中心化交易所",
+  "stablecoin":"穩定幣","stablecoins":"穩定幣","cbdc":"央行數位貨幣","usdt":"USDT","usdc":"USDC",
+  "layer 2":"L2","layer 1":"L1","l2":"L2","l1":"L1","rollup":"Rollup","zk":"ZK",
+  "mainnet":"主網","testnet":"測試網","hardfork":"硬分叉","softfork":"軟分叉",
+  "whale":"鯨魚","whales":"鯨魚","airdrop":"空投","staking":"質押","mining":"挖礦","halving":"減半",
+  "bull market":"牛市","bear market":"熊市","bull run":"牛市行情",
+  "market cap":"市值","trading volume":"成交量","all-time high":"歷史新高","ath":"歷史新高",
+  "ai":"AI","artificial intelligence":"人工智慧","metaverse":"元宇宙","web3":"Web3","rwa":"RWA",
+  "cross-chain":"跨鏈","bridge":"跨鏈橋","oracle":"預言機","governance":"治理","yield":"收益率",
 };
 
-function translateTitle(title) {
-  if (!title) return "";
-  let t = title;
-  // Sort keys by length (longer first) to avoid partial matches
-  const keys = Object.keys(DICT).sort((a, b) => b.length - a.length);
-  for (const k of keys) {
+const ACTION_PATTERNS = [
+  { re: /\b(surges?|soars?|rockets?|skyrockets?|jumps?|spikes?)\b/i, zh: "飆升" },
+  { re: /\b(plunges?|crashes?|dumps?|tanks?|tumbles?|nosedives?)\b/i, zh: "暴跌" },
+  { re: /\b(drops?|falls?|fell|declines?|dips?|slips?|slides?)\b/i, zh: "下跌" },
+  { re: /\b(rises?|rose|gains?|climbs?|advances?)\b/i, zh: "上漲" },
+  { re: /\b(rallies|rallied|rebounds?|recovers?|bounces?)\b/i, zh: "反彈" },
+  { re: /\b(hits?|reaches?|tops?|breaks?)\b/i, zh: "突破" },
+  { re: /\b(launch(es|ed)?|unveil(s|ed)?|introduce(s|d)?|roll(s|ed)?\s*out)\b/i, zh: "推出" },
+  { re: /\b(announc(es|ed)?|reveal(s|ed)?)\b/i, zh: "宣布" },
+  { re: /\b(approv(es|ed)?|green[\s-]?lights?)\b/i, zh: "批准" },
+  { re: /\b(reject(s|ed)?|den(ies|ied)?)\b/i, zh: "否決" },
+  { re: /\b(partner(s|ed)?|collaborat(es|ed)?|teams?\s*up|joins?)\b/i, zh: "合作" },
+  { re: /\b(acquir(es|ed)?|buys?|bought|purchase[sd]?)\b/i, zh: "收購" },
+  { re: /\b(list(s|ed)?|add(s|ed)?)\b/i, zh: "上架" },
+  { re: /\b(delist(s|ed)?|remov(es|ed)?)\b/i, zh: "下架" },
+  { re: /\b(ban(s|ned)?|prohibit(s|ed)?|restrict(s|ed)?)\b/i, zh: "禁止" },
+  { re: /\b(warn(s|ed)?|caution(s|ed)?)\b/i, zh: "警告" },
+  { re: /\b(hack(s|ed)?|breach(es|ed)?|exploit(s|ed)?)\b/i, zh: "遭駭客攻擊" },
+  { re: /\b(investigat(es|ed)?|prob(es|ed)?|su(es|ed)?)\b/i, zh: "調查" },
+  { re: /\b(rais(es|ed)?|secur(es|ed)?|fundrais(es|ed)?)\b/i, zh: "募資" },
+  { re: /\b(fil(es|ed))\b/i, zh: "申請" },
+  { re: /\b(upgrad(es|ed)?|update(s|d)?|implement(s|ed)?)\b/i, zh: "升級" },
+  { re: /\b(integrat(es|ed)?|adopt(s|ed)?|embrac(es|ed)?)\b/i, zh: "整合" },
+  { re: /\b(predict(s|ed)?|forecast(s|ed)?|expect(s|ed)?)\b/i, zh: "預測" },
+  { re: /\b(delay(s|ed)?|postpone[sd]?)\b/i, zh: "延遲" },
+  { re: /\b(settl(es|ed)?|pay(s|ed)?|fine[sd]?)\b/i, zh: "和解" },
+  { re: /\b(explor(es|ed)?|consider(s|ed)?|evaluat(es|ed)?)\b/i, zh: "考慮" },
+];
+
+function rewriteToChinese(engTitle) {
+  if (!engTitle) return "";
+  let title = engTitle.trim();
+
+  // Replace all known names (longest first)
+  const nameKeys = Object.keys(NAMES).sort((a, b) => b.length - a.length);
+  for (const k of nameKeys) {
     const regex = new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, "gi");
-    t = t.replace(regex, DICT[k]);
+    title = title.replace(regex, NAMES[k]);
   }
-  // Clean up common patterns
-  t = t.replace(/\s*:\s*/g, "：").replace(/\s*-\s*/g, " — ");
-  return t;
+
+  // Replace action verbs
+  for (const p of ACTION_PATTERNS) {
+    title = title.replace(p.re, p.zh);
+  }
+
+  // Common English words → Chinese
+  const COMMON = {
+    "new":"新的","after":"在...之後","before":"在...之前","amid":"在...之際","despite":"儘管",
+    "as":"隨著","with":"與","for":"為","from":"從","into":"進入","over":"超過","above":"以上",
+    "below":"以下","could":"可能","may":"可能","might":"可能","will":"將","would":"可能會",
+    "should":"應該","report":"報導","reports":"報導","according to":"根據","says":"表示",
+    "said":"表示","plan":"計劃","plans":"計劃","set":"設定","eyes":"看向","sees":"認為",
+    "year":"年","month":"月","week":"週","day":"天","today":"今日","now":"目前",
+    "first":"首次","record":"創紀錄","high":"高","low":"低","top":"頂級","major":"重大",
+    "key":"關鍵","global":"全球","world":"全球","growth":"成長","users":"用戶","user":"用戶",
+    "supply":"供應","demand":"需求","rate":"利率","interest":"利息","payment":"支付",
+    "payments":"支付","transaction":"交易","transactions":"交易","transfer":"轉帳",
+    "revenue":"營收","profit":"利潤","loss":"虧損","risk":"風險",
+    "crypto":"加密貨幣","cryptocurrency":"加密貨幣","digital asset":"數位資產",
+    "digital assets":"數位資產","blockchain":"區塊鏈",
+    "institutional":"機構","institutions":"機構","retail":"散戶",
+    "regulation":"監管","regulatory":"監管","compliance":"合規","legal":"法律",
+    "spot":"現貨","futures":"期貨","options":"選擇權","derivatives":"衍生品",
+    "inflow":"流入","outflow":"流出","inflows":"流入","outflows":"流出",
+    "billion":"十億美元","million":"百萬美元","trillion":"兆美元",
+  };
+  const commonKeys = Object.keys(COMMON).sort((a, b) => b.length - a.length);
+  for (const k of commonKeys) {
+    const regex = new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, "gi");
+    title = title.replace(regex, COMMON[k]);
+  }
+
+  // Clean remaining English fragments: if still has English words, wrap them
+  // Remove articles and prepositions that look weird in Chinese
+  title = title.replace(/\b(the|a|an|is|are|was|were|be|been|being|have|has|had|do|does|did|its|it|this|that|these|those|by|on|in|at|to|of|and|or|but|not|no|than|vs\.?|versus)\b/gi, "");
+
+  // Clean up punctuation
+  title = title.replace(/\s*:\s*/g, "：").replace(/\s*-\s*/g, "").replace(/\s*\|\s*/g, "｜");
+  title = title.replace(/\s{2,}/g, " ").replace(/^[\s,.:;]+/, "").replace(/[\s,.:;]+$/, "");
+
+  // If title is mostly empty or broken, return original
+  if (title.length < 5) return engTitle;
+
+  return title;
 }
 
-// Detect sentiment from title keywords
 function detectSentiment(title) {
   const t = title.toLowerCase();
-  const bull = ["surge","soar","rally","gain","rise","bull","ath","high","launch","partner","approv","pump","breakout","upgrade","adopt"];
-  const bear = ["crash","dump","plunge","drop","fall","ban","hack","exploit","lawsuit","crackdown","bear","reject","sell","scam","fraud"];
+  const bull = ["surge","soar","rally","gain","rise","bull","ath","high","launch","partner","approv","pump","breakout","upgrade","adopt","record","inflow","grow"];
+  const bear = ["crash","dump","plunge","drop","fall","ban","hack","exploit","lawsuit","crackdown","bear","reject","sell","scam","fraud","outflow","loss","delay","risk","warn"];
   const bScore = bull.filter(w => t.includes(w)).length;
   const sScore = bear.filter(w => t.includes(w)).length;
   if (bScore > sScore) return { label: "利多", color: "#00e89d", bg: "rgba(0,232,157,0.12)" };
@@ -166,7 +221,6 @@ function detectSentiment(title) {
 }
 
 async function fetchNews() {
-  // Try cryptocurrency.cv free API first (CORS-friendly)
   try {
     const r = await fetch("https://cryptocurrency.cv/api/news?limit=12");
     if (r.ok) {
@@ -174,8 +228,7 @@ async function fetchNews() {
       const articles = d.articles || d.data || d;
       if (Array.isArray(articles) && articles.length > 0) {
         return articles.slice(0, 12).map(n => ({
-          titleOriginal: n.title || "",
-          title: translateTitle(n.title || ""),
+          title: rewriteToChinese(n.title || ""),
           source: n.source || "",
           url: n.link || n.url || "",
           time: n.pubDate ? new Date(n.pubDate) : new Date(),
@@ -185,7 +238,6 @@ async function fetchNews() {
       }
     }
   } catch {}
-  // Fallback: CoinGecko trending items as news-like data (already in Chinese)
   try {
     const r = await fetch(`${COINGECKO}/search/trending`);
     if (r.ok) {
@@ -194,7 +246,6 @@ async function fetchNews() {
       const cats = d.categories || [];
       const items = coins.map(c => ({
         title: `${c.item.name}（${c.item.symbol}）成為 24H 熱搜第 ${(c.item.score||0)+1} 名，市值排名 #${c.item.market_cap_rank||"?"}`,
-        titleOriginal: "",
         source: "CoinGecko Trending",
         url: `https://www.coingecko.com/en/coins/${c.item.id}`,
         time: new Date(),
@@ -205,7 +256,6 @@ async function fetchNews() {
         cats.slice(0, 4).forEach(cat => {
           items.push({
             title: `🔥 熱門板塊：${cat.name} — 24H 市值變化 ${cat.data?.market_cap_change_percentage_24h?.usd?.toFixed(2)||"?"}%`,
-            titleOriginal: "",
             source: "CoinGecko",
             url: "https://www.coingecko.com/en/categories",
             time: new Date(),
@@ -335,20 +385,42 @@ function generateAdvice(coins, trending, fearGreed, unlocks, memeCoins) {
 
     // Reason
     const reasons = [];
-    if (chg > 5) reasons.push(`24H 漲 ${chg.toFixed(1)}%，動能強勁`);
-    else if (chg < -5) reasons.push(`24H 跌 ${Math.abs(chg).toFixed(1)}%，短期承壓`);
-    if (trendingSet.has(c.symbol)) reasons.push("CoinGecko 熱搜上榜");
-    if (uPressure > 1.5) reasons.push(`近期解鎖 ${uPressure}% 供應量，注意拋壓`);
-    if (regime === "extreme_fear" && chg < 0) reasons.push("市場極度恐懼，可能是反轉機會");
-    if (regime === "extreme_greed" && chg > 5) reasons.push("市場極度貪婪，小心追高");
-    if (volatility > 5) reasons.push("波動率偏高，適合短線操作");
-    if (reasons.length === 0) reasons.push("走勢平穩，無明顯訊號");
+    if (chg > 5) reasons.push(`24H 漲幅 ${chg.toFixed(1)}%，短期動能強勁`);
+    else if (chg > 2) reasons.push(`24H 小幅上漲 ${chg.toFixed(1)}%，多方佔優`);
+    else if (chg > -2) reasons.push("24H 走勢平穩，處於盤整區間");
+    else if (chg > -5) reasons.push(`24H 下跌 ${Math.abs(chg).toFixed(1)}%，短期承壓`);
+    else reasons.push(`24H 大跌 ${Math.abs(chg).toFixed(1)}%，空方主導`);
+
+    if (trendingSet.has(c.symbol)) reasons.push("CoinGecko 24H 熱搜上榜，社群關注度高");
+    if (uPressure > 2) reasons.push(`近期將解鎖 ${uPressure}% 供應量，拋壓風險較高`);
+    else if (uPressure > 1) reasons.push(`近期有 ${uPressure}% 供應量解鎖，需留意賣壓`);
+    if (regime === "extreme_fear" && chg < 0) reasons.push("市場處於極度恐懼，歷史上常為反轉買點");
+    if (regime === "fear" && chg < -2) reasons.push("恐懼指數偏低，逆向思考可留意佈局機會");
+    if (regime === "extreme_greed" && chg > 5) reasons.push("市場極度貪婪且漲幅已大，追高風險偏高");
+    if (regime === "greed" && chg > 3) reasons.push("市場情緒偏貪婪，注意短期回調風險");
+    if (volatility > 5) reasons.push(`波動率 ${volatility.toFixed(1)}%，適合短線交易但風險較高`);
+    else if (volatility < 1.5) reasons.push("波動率偏低，可能醞釀方向性突破");
+    if (volRatio > 0.5) reasons.push("成交量佔比高，流動性充足，大資金關注中");
+    else if (volRatio < 0.05) reasons.push("成交量相對偏低，流動性不足需注意滑點");
+
+    // Sparkline trend detail
+    if (spark.length >= 6) {
+      const firstQ = spark.slice(0, Math.floor(spark.length / 4));
+      const lastQ = spark.slice(Math.floor(spark.length * 3 / 4));
+      const avgFirstQ = firstQ.reduce((a, b) => a + b, 0) / firstQ.length;
+      const avgLastQ = lastQ.reduce((a, b) => a + b, 0) / lastQ.length;
+      const trendPct = ((avgLastQ - avgFirstQ) / avgFirstQ * 100);
+      if (trendPct > 3) reasons.push(`24H 走勢圖呈上升趨勢（+${trendPct.toFixed(1)}%），多方持續發力`);
+      else if (trendPct < -3) reasons.push(`24H 走勢圖呈下降趨勢（${trendPct.toFixed(1)}%），空方壓力未減`);
+    }
+
+    if (reasons.length < 3) reasons.push("綜合評分中等，建議搭配其他指標判斷");
 
     return {
       symbol: c.symbol, name: c.name, price: c.price, change: chg,
       score, risk, riskColor, riskBg,
       shortTerm, shortColor, midTerm, midColor,
-      reason: reasons.slice(0, 2).join("；"),
+      reason: reasons.slice(0, 3).join("；"),
       sparkline: c.sparkline,
     };
   });
@@ -385,7 +457,7 @@ function generateAdvice(coins, trending, fearGreed, unlocks, memeCoins) {
   const all = [...scored, ...memeScored];
   // Pick top 5 by absolute score interest (highest + most extreme)
   all.sort((a, b) => b.score - a.score);
-  return all.slice(0, 5);
+  return all.slice(0, 10);
 }
 
 // ─── Market Summary for Advice Header ───
@@ -542,7 +614,7 @@ export default function CryptoDailyReport(){
           </div>
 
           {/* Top 5 Picks */}
-          <div style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:12}}>🎯 今日最值得關注 Top 5</div>
+          <div style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:12}}>🎯 今日最值得關注 Top 10</div>
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             {advice.map((a,i)=>(
               <div key={i} style={{padding:"18px 20px",borderRadius:10,background:C.bgCard,border:`1px solid ${i===0?`${C.accent}44`:C.border}`,animation:`fadeUp .4s ease ${i*.08}s both`,position:"relative",overflow:"hidden"}}>
@@ -614,7 +686,6 @@ export default function CryptoDailyReport(){
               <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:C.textDim}}>{n.time.toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})}</div>
               <div>
                 <div style={{fontSize:13,fontWeight:500,lineHeight:1.6,marginBottom:4,color:C.text}}>{n.title}</div>
-                {n.titleOriginal&&<div style={{fontSize:10,color:C.textMuted,lineHeight:1.4,marginBottom:6,fontStyle:"italic"}}>{n.titleOriginal}</div>}
                 <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
                   <span style={{fontSize:10,color:C.accent,fontWeight:600}}>{n.source}</span>
                   {n.tags.map((tag,j)=><span key={j} style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:`${C.accent}15`,color:C.textDim}}>{tag}</span>)}
